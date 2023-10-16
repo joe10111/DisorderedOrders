@@ -8,7 +8,8 @@ namespace DisorderedOrdersMVC.Models
         public string Name { get; set; }
         public int StockQuantity { get; set; }
         public int Price { get; set; }
-
+        
+        /*
         public bool InStock(int qty)
         {
             return StockQuantity >= qty;
@@ -18,5 +19,6 @@ namespace DisorderedOrdersMVC.Models
         {
             StockQuantity -= qty;
         }
+        */
     }
 }
