@@ -27,10 +27,31 @@ namespace DisorderedOrdersMVC.Controllers
         [Route("/orders")]
         public IActionResult Create(IFormCollection collection, string paymentType)
         {
-            // create order
+             // Create order - Set Up
             int customerId = Convert.ToInt16(collection["CustomerId"]);
             Customer customer = _context.Customers.Find(customerId);
             var order = new Order() { Customer = customer };
+            
+             // Create order - Looping and Actions
+            CreateOrder(collection, order);
+
+            // Verify Stock Available
+            VerifyStock(order);
+
+            // Calculate total price
+            int total = CalulatePrice(order);
+
+            // Process payment
+            ProcessPayment(paymentType, total);
+
+            _context.Orders.Add(order);
+            _context.SaveChanges();
+
+            return RedirectToAction("Show", new { id = order.Id});
+        }
+
+        private void CreateOrder(IFormCollection collection, Order order)
+        {
             for (var i = 1; i < collection.Count - 1; i++)
             {
                 var kvp = collection.ToList()[i];
@@ -41,8 +62,10 @@ namespace DisorderedOrdersMVC.Controllers
                     order.Items.Add(orderItem);
                 }
             }
+        }
 
-            // verify stock available
+        private void VerifyStock(Order order)
+        {
             foreach (var orderItem in order.Items)
             {
                 if (!orderItem.Item.InStock(orderItem.Quantity))
@@ -52,15 +75,23 @@ namespace DisorderedOrdersMVC.Controllers
 
                 orderItem.Item.DecreaseStock(orderItem.Quantity);
             }
+        }
 
-            // calculate total price
+        private int CalulatePrice(Order order)
+        {
             var total = 0;
+
             foreach (var orderItem in order.Items)
             {
                 var itemPrice = orderItem.Item.Price * orderItem.Quantity;
                 total += itemPrice;
             }
 
+            return total;
+        }
+
+        private void ProcessPayment(string paymentType, int total)
+        {
             // process payment
             IPaymentProcessor processor;
             if (paymentType == "bitcoin")
@@ -77,11 +108,6 @@ namespace DisorderedOrdersMVC.Controllers
             }
 
             processor.ProcessPayment(total);
-
-            _context.Orders.Add(order);
-            _context.SaveChanges();
-
-            return RedirectToAction("Show", new { id = order.Id});
         }
 
         [Route("/orders/{id:int}")]
@@ -93,12 +119,8 @@ namespace DisorderedOrdersMVC.Controllers
                     .ThenInclude(i => i.Item)
                 .Where(o => o.Id == id).First();
 
-            var total = 0;
-            foreach (var orderItem in order.Items)
-            {
-                var itemPrice = orderItem.Item.Price * orderItem.Quantity;
-                total += itemPrice;
-            }
+            var total = CalulatePrice(order);
+
             ViewData["total"] = total;
 
             return View(order);
